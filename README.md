@@ -47,8 +47,3 @@ The repository includes a Python script (`scripts/ai_cleaning_pipeline.py`) that
 2. Load your raw satellite imagery and vector layers.
 3. Run the Python script in the QGIS console to generate the cleaned, AI-ready output.
 
----
-
-### **Final Polish Tip**
-
-Once you've pasted this, scroll to the bottom and click **"Commit changes"**. Your repository is now fully documented and ready to be shared in the "Portfolio" section of your application!
