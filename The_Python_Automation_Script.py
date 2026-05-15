@@ -3,32 +3,50 @@ from PyQt5.QtCore import QVariant
 
 def run_ai_cleaning_pipeline(layer_name):
     # Load the layer
-    layer = QgsProject.instance().mapLayersByName(layer_name)[0]
+    layers = QgsProject.instance().mapLayersByName(layer_name)
+    if not layers:
+        print(f"Error: Layer '{layer_name}' not found.")
+        return
+    layer = layers[0]
     
-    # 1. Add a 'valid_geom' flag for AI filtering
-    if layer.fields().indexFromName('valid_geom') == -1:
-        layer.startEditing()
-        layer.addAttribute(QgsField("valid_geom", QVariant.Int))
-        layer.updateFields()
+    # Track if fields need to be added
+    fields_to_add = []
+    
+    # 1. Check 'valid_geom' flag for AI filtering
+    idx_valid = layer.fields().indexFromName('valid_geom')
+    if idx_valid == -1:
+        fields_to_add.append(QgsField("valid_geom", QVariant.Int))
 
-    # 2. Add 'area_sqm' for feature engineering
-    if layer.fields().indexFromName('area_sqm') == -1:
-        layer.startEditing()
-        layer.addAttribute(QgsField("area_sqm", QVariant.Double))
-        layer.updateFields()
+    # 2. Check 'area_sqm' for feature engineering
+    idx_area = layer.fields().indexFromName('area_sqm')
+    if idx_area == -1:
+        fields_to_add.append(QgsField("area_sqm", QVariant.Double))
 
-    # 3. Process features
+    # Add fields if they don't exist
+    if fields_to_add:
+        layer.startEditing()
+        layer.addAttributes(fields_to_add)
+        layer.updateFields()
+        layer.commitChanges()
+        
+        # Re-index fields after updates
+        idx_valid = layer.fields().indexFromName('valid_geom')
+        idx_area = layer.fields().indexFromName('area_sqm')
+
+    # 3. Process features in a single clean editing block
     layer.startEditing()
     for feature in layer.getFeatures():
-        # Check if geometry is valid (Crucial for AI training)
-        is_valid = 1 if feature.geometry().isGeosvalid() else 0
-        area = feature.geometry().area()
+        geom = feature.geometry()
         
-        layer.changeAttributeValue(feature.id(), layer.fields().indexFromName('valid_geom'), is_valid)
-        layer.changeAttributeValue(feature.id(), layer.fields().indexFromName('area_sqm'), round(area, 2))
+        # Fixed capitalization: .isGeosValid()
+        is_valid = 1 if geom.isGeosValid() else 0
+        area = geom.area() if geom else 0.0
+        
+        layer.changeAttributeValue(feature.id(), idx_valid, is_valid)
+        layer.changeAttributeValue(feature.id(), idx_area, round(area, 2))
     
     layer.commitChanges()
-    print(f"Pipeline complete for {layer_name}. Metadata updated.")
+    print(f"Pipeline complete for '{layer_name}'. Topological and geometric metadata updated.")
 
 # Usage
 # run_ai_cleaning_pipeline('your_layer_name')
